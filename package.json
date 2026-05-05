@@ -1,0 +1,53 @@
+{
+  "name": "sistema-abertura",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed.ts",
+    "criar-admin": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/criar-admin.ts",
+    "reativar-usuario": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/reativar-usuario.ts",
+    "testar-conexao": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/testar-conexao.ts",
+    "diagnosticar-rede": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/diagnosticar-rede.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.38.5",
+    "nodemailer": "^6.9.3",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
+    "lucide-react": "latest",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8.4.0",
+    "prisma": "^5.7.1",
+    "tailwindcss": "^3.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,874 @@
+// Configuração do Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TABELAS PRINCIPAIS
+// ============================================
+
+// Usuários do Sistema
+model Usuario {
+  id             Int           @id @default(autoincrement())
+  externalId     String?       @unique // UUID externo (para ghost user)
+  nome           String
+  email          String        @unique
+  senha          String // Hash bcrypt
+  role           Role          @default(USUARIO)
+  departamentoId Int?
+  departamento   Departamento? @relation(fields: [departamentoId], references: [id])
+  // Departamentos adicionais — usuário/gerente pode pertencer a múltiplos deptos
+  // O "departamentoId" principal continua sendo o default; os extras se somam para permissões.
+  departamentosExtras Int[]     @default([])
+  ativo          Boolean       @default(true)
+  isGhost        Boolean       @default(false) // Se true, ações não são logadas
+  require2FA     Boolean       @default(true) // Se false, pula verificação por email no login
+  permissoes     String[]      @default([]) // Array de strings com permissões
+  criadoEm       DateTime      @default(now())
+  atualizadoEm   DateTime      @updatedAt
+
+  processosCriados      Processo[]             @relation("ProcessoCriadoPor")
+  processosResponsavel  Processo[]             @relation("ProcessoResponsavel")
+  comentarios           Comentario[]
+  historicoEventos      HistoricoEvento[]
+  respostasQuestionario RespostaQuestionario[]
+  templatesCriados      Template[]
+  notificacoes          Notificacao[]
+  favoritos             ProcessoFavorito[]
+  emailVerificationCodes EmailVerificationCode[]
+  itensLixeira          ItemLixeira[]
+  logsAuditoria         LogAuditoria[] @relation("LogsAuditoria")
+  projetosResponsavel   Projeto[]      @relation("ProjetoResponsavel")
+  projetosCriados       Projeto[]      @relation("ProjetoCriador")
+
+  @@index([email])
+  @@index([role])
+}
+
+enum Role {
+  ADMIN
+  ADMIN_DEPARTAMENTO
+  GERENTE
+  USUARIO
+}
+
+// ============================================
+// SESSÕES ATIVAS (para painel de controle)
+// ============================================
+model SessaoAtiva {
+  id          Int      @id @default(autoincrement())
+  usuarioId   Int
+  token       String   @unique
+  ip          String?
+  userAgent   String?
+  criadoEm    DateTime @default(now())
+  ultimoAcesso DateTime @default(now())
+  ativo       Boolean  @default(true)
+
+  @@index([usuarioId])
+  @@index([ativo])
+  @@index([ultimoAcesso])
+}
+
+// ============================================
+// MODO MANUTENÇÃO
+// ============================================
+model ConfiguracaoSistema {
+  id              Int      @id @default(autoincrement())
+  chave           String   @unique
+  valor           String
+  atualizadoEm    DateTime @updatedAt
+  atualizadoPorId Int?
+
+  @@index([chave])
+}
+
+// ============================================
+// FLUXOS DE INTERLIGAÇÃO SALVOS
+// ============================================
+model FluxoInterligacao {
+  id          Int      @id @default(autoincrement())
+  nome        String
+  descricao   String?
+  templateIds Int[]    @default([]) // IDs dos templates na ordem
+  criadoPorId Int
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([criadoPorId])
+}
+
+// Departamentos do Fluxo
+model Departamento {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  descricao    String?
+  responsavel  String?
+  cor          String   @default("from-cyan-500 to-blue-600") // Gradiente Tailwind
+  icone        String? // Nome do ícone Lucide
+  ativo        Boolean  @default(true)
+  ordem        Int      @default(0)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuarios               Usuario[]
+  processos              Processo[]
+  questionarios          QuestionarioDepartamento[]
+  documentosObrigatorios DocumentoObrigatorio[]
+  historicoFluxos        HistoricoFluxo[]
+  comentarios            Comentario[]
+  documentos             Documento[]
+
+  @@index([ativo, ordem])
+}
+
+// Empresas Cadastradas
+model Empresa {
+  id                  Int       @id @default(autoincrement())
+  cnpj                String?   @unique
+  codigo              String    @unique
+  razao_social        String
+  apelido             String? // Nome fantasia
+  inscricao_estadual  String?
+  inscricao_municipal String?
+  regime_federal      String?
+  regime_estadual     String?
+  regime_municipal    String?
+  data_abertura       DateTime?
+  estado              String?
+  cidade              String?
+  bairro              String?
+  logradouro          String?
+  numero              String?
+  cep                 String?
+  email               String?
+  telefone            String?
+  cadastrada          Boolean   @default(false) // true se CNPJ informado
+  criado_em           DateTime  @default(now())
+  atualizado_em       DateTime  @updatedAt
+
+  processos  Processo[]
+  documentos EmpresaDocumento[]
+  projetos   Projeto[]
+
+  @@index([cnpj])
+  @@index([codigo])
+  @@index([cadastrada])
+}
+
+// Documentos da Empresa (com validade opcional)
+model EmpresaDocumento {
+  id               Int       @id @default(autoincrement())
+  empresaId        Int
+  empresa          Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nome             String
+  tipo             String
+  descricao        String?
+  tamanho          BigInt
+  url              String
+  path             String?
+  dataUpload       DateTime  @default(now())
+  uploadPorId      Int?
+  validadeAte      DateTime?
+  alertarDiasAntes Int       @default(30)
+
+  // Controle de acesso (mesma logica que Documento de processo)
+  visibility           DocumentoVisibility @default(PUBLIC)
+  allowedRoles         String[]            @default([])
+  allowedUserIds       Int[]               @default([])
+  allowedDepartamentos Int[]               @default([])
+
+  @@index([empresaId])
+  @@index([validadeAte])
+}
+
+// Processos/Solicitações
+model Processo {
+  id          Int     @id @default(autoincrement())
+  nome        String?
+  nomeServico String?
+  nomeEmpresa String
+  cliente     String?
+  email       String?
+  telefone    String?
+
+  empresaId Int?
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+
+  status     Status     @default(EM_ANDAMENTO)
+  prioridade Prioridade @default(MEDIA)
+
+  departamentoAtual      Int
+  departamentoAtualRel   Departamento? @relation(fields: [departamentoAtual], references: [id])
+  departamentoAtualIndex Int           @default(0)
+  fluxoDepartamentos     Int[]         @default([]) // Array de IDs de departamentos
+
+  descricao    String? @db.Text
+  notasCriador String? @db.Text
+
+  criadoPorId Int?
+  criadoPor   Usuario? @relation("ProcessoCriadoPor", fields: [criadoPorId], references: [id])
+
+  responsavelId Int?
+  responsavel   Usuario? @relation("ProcessoResponsavel", fields: [responsavelId], references: [id])
+
+  criadoEm        DateTime  @default(now())
+  dataCriacao     DateTime  @default(now())
+  dataAtualizacao DateTime  @default(now())
+  dataInicio      DateTime?
+  dataEntrega     DateTime?
+  dataFinalizacao DateTime?
+
+  progresso Int @default(0) // 0-100
+
+  // Interligação (processo vinculado que segue após finalização)
+  processoOrigemId Int? // Processo pai real da cadeia interligada
+  interligadoComId Int? // ID do template/processo que será criado ao finalizar
+  interligadoNome  String? // Nome da solicitação interligada
+  interligadoParalelo Boolean @default(false) // Se true, a solicitação interligada será criada com departamentos paralelos
+  interligacaoTemplateIds Int[] @default([]) // Fila ordenada de templates que devem continuar a cadeia (flat, compatível)
+  // Ramificação: agrupa a cadeia em blocos com modo "sequencial" (cria um de cada vez)
+  // ou "paralelo" (cria todos de uma vez ao terminar o bloco anterior).
+  // Formato: [{ modo: 'sequencial' | 'paralelo', templateIds: number[] }, ...]
+  // Se vazio, cai na lógica antiga tratando todos como sequenciais.
+  interligacaoGrupos Json? @default("[]")
+
+  // Controle de departamentos independentes
+  deptIndependente Boolean @default(false) // Se true, departamentos podem trabalhar em paralelo
+  // Dependências entre etapas do fluxo. Mapa: { "chaveEtapa": ["chaveEtapaQueDependeDe", ...] }
+  // Onde chaveEtapa = "deptId" (1ª ocorrência) ou "deptId:ocorrencia" (2ª+).
+  // Só faz sentido com deptIndependente=true. Se etapa não tem entrada, usa a regra padrão (não bloqueia).
+  dependenciasDept Json? @default("{}")
+
+  // Projeto (dossiê): agrupa solicitações relacionadas ao mesmo assunto de uma empresa.
+  // Ex.: "Abertura de Empresa — ACME Ltda" engloba várias solicitações com nomes diferentes.
+  projetoId Int?
+  projeto   Projeto? @relation(fields: [projetoId], references: [id])
+
+  // Relações
+  tags                  ProcessoTag[]
+  comentarios           Comentario[]
+  documentos            Documento[]
+  historicoEventos      HistoricoEvento[]
+  historicoFluxos       HistoricoFluxo[]
+  questionarios         QuestionarioDepartamento[]
+  respostasQuestionario RespostaQuestionario[]
+  favoritadoPor         ProcessoFavorito[]
+
+  @@index([status])
+  @@index([departamentoAtual])
+  @@index([empresaId])
+  @@index([criadoPorId])
+  @@index([responsavelId])
+  @@index([dataCriacao])
+  @@index([processoOrigemId])
+  @@index([projetoId])
+}
+
+// ============================================
+// PROJETO (DOSSIÊ DE SOLICITAÇÕES)
+// ============================================
+// Agrupa solicitações relacionadas ao mesmo "assunto" de uma empresa.
+// Ex.: "Abertura de Empresa — ACME Ltda" engloba CADASTRO → FINANCEIRO → PROCESSOS
+//      → nova rodada de CADASTRO → e depois ramifica em RH, CONTÁBIL+FISCAL.
+// Todas essas solicitações (com nomes diferentes) pertencem ao MESMO projeto,
+// e o Projeto oferece visão consolidada (checklist agregado, timeline, responsável do projeto).
+model Projeto {
+  id              Int            @id @default(autoincrement())
+  nome            String
+  descricao       String?        @db.Text
+  empresaId       Int?
+  empresa         Empresa?       @relation(fields: [empresaId], references: [id])
+  status          StatusProjeto  @default(EM_ANDAMENTO)
+  responsavelId   Int?
+  responsavel     Usuario?       @relation("ProjetoResponsavel", fields: [responsavelId], references: [id])
+  criadoPorId     Int?
+  criadoPor       Usuario?       @relation("ProjetoCriador", fields: [criadoPorId], references: [id])
+  dataEntrega     DateTime?
+  dataFinalizacao DateTime?
+  criadoEm        DateTime       @default(now())
+  atualizadoEm    DateTime       @updatedAt
+
+  observacoesDepartamentos Json?
+
+  processos       Processo[]
+
+  @@index([empresaId])
+  @@index([status])
+  @@index([responsavelId])
+  @@index([criadoPorId])
+}
+
+enum StatusProjeto {
+  EM_ANDAMENTO
+  CONCLUIDO
+  PAUSADO
+  CANCELADO
+}
+
+enum Status {
+  EM_ANDAMENTO
+  FINALIZADO
+  PAUSADO
+  CANCELADO
+  RASCUNHO
+}
+
+enum Prioridade {
+  ALTA
+  MEDIA
+  BAIXA
+}
+
+// Tags do Sistema
+model Tag {
+  id           Int      @id @default(autoincrement())
+  nome         String   @unique
+  cor          String   @default("bg-blue-500") // Cor Tailwind
+  texto        String   @default("text-white") // Cor do texto
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  processos ProcessoTag[]
+
+  @@index([nome])
+}
+
+// Relação Muitos-para-Muitos: Processo <-> Tag
+model ProcessoTag {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  tagId      Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([processoId, tagId])
+  @@index([processoId])
+  @@index([tagId])
+}
+
+// Comentários nos Processos
+model Comentario {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  texto   String  @db.Text
+  autorId Int
+  autor   Usuario @relation(fields: [autorId], references: [id])
+
+  departamentoId Int?
+  departamento   Departamento? @relation(fields: [departamentoId], references: [id])
+
+  parentId  Int? // ID do comentário pai (para respostas)
+  parent    Comentario?  @relation("ComentarioRespostas", fields: [parentId], references: [id], onDelete: Cascade)
+  respostas Comentario[] @relation("ComentarioRespostas")
+
+  mencoes      String[]  @default([]) // Array de emails/nomes mencionados
+  editado      Boolean   @default(false)
+  editadoEm    DateTime?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  @@index([processoId])
+  @@index([autorId])
+  @@index([parentId])
+}
+
+// Documentos dos Processos
+model Documento {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  nome          String
+  tipo          String // Geral, Contrato Social, CNPJ, etc.
+  tipoCategoria String? // Categoria adicional
+  tamanho       BigInt // Tamanho em bytes
+  url           String // URL no Supabase Storage
+  path          String? // Caminho no storage
+
+  departamentoId Int?
+  departamento   Departamento? @relation(fields: [departamentoId], references: [id])
+
+  perguntaId BigInt? // Se foi anexado em uma pergunta específica (BigInt pois IDs de sub-perguntas podem exceder o limite Int)
+
+  dataUpload  DateTime @default(now())
+  uploadPorId Int?
+
+  // Visibilidade e controle de acesso
+  visibility          DocumentoVisibility @default(PUBLIC)
+  allowedRoles        String[]            @default([]) // lista de roles permitidas (por ex: ['GERENTE','USUARIO'])
+  allowedUserIds      Int[]               @default([]) // lista de user IDs permitidos quando visibility = USERS
+  allowedDepartamentos Int[]              @default([]) // lista de departamento IDs permitidos
+
+  @@index([processoId])
+  @@index([departamentoId])
+  @@index([tipo])
+}
+
+enum DocumentoVisibility {
+  PUBLIC       // visível para qualquer usuário que tenha acesso ao processo
+  ROLES        // visível apenas para users com roles listadas em allowedRoles
+  USERS        // visível apenas para users listados em allowedUserIds
+  DEPARTAMENTOS // visível apenas para users dos departamentos listados
+  NONE         // visível apenas para quem explicitamente foi concedido (fallback)
+}
+
+// Documentos Obrigatórios por Departamento
+model DocumentoObrigatorio {
+  id             Int          @id @default(autoincrement())
+  departamentoId Int
+  departamento   Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
+
+  tipo        String
+  nome        String
+  descricao   String? @db.Text
+  obrigatorio Boolean @default(true)
+
+  @@index([departamentoId])
+}
+
+// Questionários por Departamento
+model QuestionarioDepartamento {
+  id             Int          @id @default(autoincrement())
+  departamentoId Int
+  departamento   Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
+
+  processoId Int?
+  processo   Processo? @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  // Identifica a ocorrência do departamento no fluxo quando ele aparece mais de uma vez.
+  // 1 = primeira aparição (padrão, retrocompatível); 2+ = aparições subsequentes.
+  etapa       Int       @default(1)
+  label       String
+  tipo        TipoCampo
+  obrigatorio Boolean   @default(false)
+  ordem       Int       @default(0)
+
+  opcoes      String[] @default([]) // Para campos select
+  placeholder String?
+  descricao   String?  @db.Text
+
+  // Pergunta condicional
+  condicaoPerguntaId Int?
+  condicaoOperador   String? // igual, diferente, contem
+  condicaoValor      String?
+
+  // Para grupo_repetivel
+  controladoPor      Int?     // ID da pergunta que controla as repetições
+  modoRepeticao      String?  // "numero" | "manual"
+  subPerguntas       Json?    // Array de perguntas dentro do grupo
+
+  respostas RespostaQuestionario[]
+
+  @@index([departamentoId])
+  @@index([processoId])
+}
+
+enum TipoCampo {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  CHECKBOX
+  FILE
+  PHONE
+  EMAIL
+  CPF
+  CNPJ
+  CEP
+  MONEY
+  GRUPO_REPETIVEL
+  TITULO
+}
+
+// Respostas dos Questionários
+model RespostaQuestionario {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  questionarioId Int
+  questionario   QuestionarioDepartamento @relation(fields: [questionarioId], references: [id], onDelete: Cascade)
+
+  resposta        String  @db.Text // JSON string para valores complexos
+  respondidoPorId Int
+  respondidoPor   Usuario @relation(fields: [respondidoPorId], references: [id])
+
+  respondidoEm DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@unique([processoId, questionarioId])
+  @@index([processoId])
+  @@index([questionarioId])
+}
+
+// Histórico de Eventos do Processo
+model HistoricoEvento {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  tipo          TipoEvento
+  acao          String     @db.Text
+  responsavelId Int?
+  responsavel   Usuario?   @relation(fields: [responsavelId], references: [id])
+
+  departamento  String? // Nome do departamento no momento do evento
+  data          DateTime @default(now())
+  dataTimestamp BigInt // Timestamp para ordenação
+
+  @@index([processoId])
+  @@index([data])
+  @@index([tipo])
+}
+
+enum TipoEvento {
+  INICIO
+  ALTERACAO
+  MOVIMENTACAO
+  CONCLUSAO
+  FINALIZACAO
+  DOCUMENTO
+  COMENTARIO
+}
+
+// Histórico de Fluxo (movimentação entre departamentos)
+model HistoricoFluxo {
+  id         Int      @id @default(autoincrement())
+  processoId Int
+  processo   Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  departamentoId Int
+  departamento   Departamento @relation(fields: [departamentoId], references: [id])
+
+  ordem     Int // Ordem no fluxo (0, 1, 2, ...)
+  status    String // em_andamento, concluido, etc.
+  entradaEm DateTime  @default(now())
+  saidaEm   DateTime?
+
+  @@index([processoId])
+  @@index([departamentoId])
+}
+
+// Templates de Processo
+model Template {
+  id                           Int      @id @default(autoincrement())
+  nome                         String
+  descricao                    String?  @db.Text
+  fluxoDepartamentos           Int[]    @default([]) // Array de IDs
+  questionariosPorDepartamento Json // JSON com questionários por dept
+  // Cadeia de interligação pré-configurada: quando um processo criado deste template for finalizado,
+  // o próximo template desta lista será criado automaticamente, e assim por diante.
+  interligacaoTemplateIds      Int[]    @default([])
+  interligacaoParalelo         Boolean  @default(false)
+  // Ramificação: grupos com modo sequencial/paralelo (ver Processo.interligacaoGrupos)
+  interligacaoGrupos           Json?    @default("[]")
+  // Dependências entre etapas do fluxo (ver Processo.dependenciasDept)
+  dependenciasDept             Json?    @default("{}")
+  criadoPorId                  Int?
+  criadoPor                    Usuario? @relation(fields: [criadoPorId], references: [id])
+  criado_em                    DateTime @default(now())
+  atualizado_em                DateTime @updatedAt
+
+  @@index([criadoPorId])
+}
+
+// Notificações do Sistema
+model Notificacao {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  mensagem String          @db.Text
+  tipo     TipoNotificacao @default(INFO)
+  lida     Boolean         @default(false)
+
+  processoId Int? // Se relacionado a um processo
+  link       String? // Link para ação
+
+  criadoEm DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([lida])
+  @@index([criadoEm])
+}
+
+enum TipoNotificacao {
+  SUCESSO
+  ERRO
+  INFO
+  AVISO
+}
+
+// Eventos do Calendário
+model EventoCalendario {
+  id        Int                    @id @default(autoincrement())
+  titulo    String
+  descricao String?                @db.Text
+  tipo      TipoEventoCalendario   @default(LEMBRETE)
+  status    StatusEventoCalendario @default(PENDENTE)
+
+  dataInicio DateTime
+  dataFim    DateTime?
+  diaInteiro Boolean   @default(false)
+  cor        String? // Cor customizada
+
+  // Relacionamentos opcionais
+  processoId     Int?
+  empresaId      Int?
+  departamentoId Int?
+  criadoPorId    Int?
+
+  // Privacidade - se true, só o criador vê
+  privado Boolean @default(true)
+
+  // Recorrência
+  recorrencia    RecorrenciaEventoCalendario @default(UNICO)
+  recorrenciaFim DateTime?
+
+  // Alertas
+  alertaMinutosAntes Int? @default(60)
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([dataInicio])
+  @@index([tipo])
+  @@index([status])
+  @@index([processoId])
+  @@index([empresaId])
+  @@index([departamentoId])
+  @@index([criadoPorId])
+}
+
+enum TipoEventoCalendario {
+  PROCESSO_PRAZO
+  SOLICITACAO
+  OBRIGACAO_FISCAL
+  DOCUMENTO_VENCIMENTO
+  REUNIAO
+  LEMBRETE
+  FERIADO
+}
+
+enum StatusEventoCalendario {
+  PENDENTE
+  CONCLUIDO
+  ATRASADO
+  CANCELADO
+}
+
+enum RecorrenciaEventoCalendario {
+  UNICO
+  DIARIO
+  SEMANAL
+  MENSAL
+  ANUAL
+}
+
+// ============================================
+// LIXEIRA DO SISTEMA
+// ============================================
+
+// Itens deletados (soft delete)
+model ItemLixeira {
+  id Int @id @default(autoincrement())
+
+  // Tipo do item (PROCESSO, DOCUMENTO)
+  tipoItem TipoItemLixeira
+
+  // ID original do item antes de ser excluído
+  itemIdOriginal Int
+
+  // Dados do item serializados em JSON para restauração
+  dadosOriginais Json
+
+  // Contexto - onde o item estava
+  processoId     Int? // Se era um documento de um processo
+  empresaId      Int? // Se relacionado a uma empresa
+  departamentoId Int? // Departamento onde estava
+
+  // Informações de visibilidade (para manter permissões)
+  visibility     String   @default("PUBLIC") // PUBLIC, ROLES, USERS
+  allowedRoles   String[] @default([])
+  allowedUserIds Int[]    @default([])
+
+  // Quem deletou
+  deletadoPorId Int
+  deletadoPor   Usuario  @relation(fields: [deletadoPorId], references: [id])
+
+  // Datas
+  deletadoEm DateTime @default(now())
+  expiraEm   DateTime // Data que será excluído permanentemente (15 dias)
+
+  // Metadados adicionais
+  nomeItem      String // Nome para exibição (nome do doc ou processo)
+  descricaoItem String? // Descrição breve
+  motivoExclusao String? // Motivo da exclusão
+  motivoExclusaoCustom String? // Motivo customizado
+
+  @@index([tipoItem])
+  @@index([deletadoPorId])
+  @@index([expiraEm])
+  @@index([processoId])
+  @@index([visibility])
+}
+
+enum TipoItemLixeira {
+  PROCESSO
+  DOCUMENTO
+  DEPARTAMENTO
+  COMENTARIO
+  USUARIO
+  EMPRESA
+  EMPRESA_DOCUMENTO
+  TEMPLATE
+  TAG
+  NOTIFICACAO
+}
+
+// ============================================
+// FAVORITOS DO SISTEMA
+// ============================================
+
+// Processos favoritos dos usuários
+model ProcessoFavorito {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  processoId Int
+  criadoEm   DateTime @default(now())
+
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, processoId])
+  @@index([usuarioId])
+  @@index([processoId])
+}
+
+// Códigos de verificação enviados por email (2ª etapa)
+model EmailVerificationCode {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  codeHash   String   // hash seguro do código (bcrypt)
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([expiresAt])
+}
+
+// ============================================
+// LOGS DE AUDITORIA (HISTÓRICO GLOBAL)
+// ============================================
+
+model LogAuditoria {
+  id          Int      @id @default(autoincrement())
+  usuarioId   Int
+  usuario     Usuario  @relation("LogsAuditoria", fields: [usuarioId], references: [id])
+  acao        TipoAcaoLog
+  entidade    String   // ex: 'PROCESSO', 'EMPRESA', 'DEPARTAMENTO', etc
+  entidadeId  Int?     // ID do item afetado
+  entidadeNome String? // Nome legível (ex: nome da empresa, nome da solicitação)
+  campo       String?  // Campo específico alterado (ex: 'regime_federal')
+  valorAnterior String? @db.Text // Valor antes da alteração
+  valorNovo    String? @db.Text // Valor após a alteração
+  detalhes    String?  @db.Text // Detalhes adicionais (JSON ou texto livre)
+  processoId  Int?     // Se relacionado a um processo
+  empresaId   Int?     // Se relacionado a uma empresa
+  departamentoId Int?  // Se relacionado a um departamento
+  ip          String?  // IP do usuário (opcional)
+  apagado     Boolean  @default(false)
+  apagadoEm   DateTime?
+  apagadoPorId Int?
+  apagadoPorNome String?
+  apagadoMotivo String? @db.Text
+  criadoEm    DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([entidade])
+  @@index([processoId])
+  @@index([empresaId])
+  @@index([apagado])
+  @@index([criadoEm])
+  @@index([acao])
+}
+
+enum TipoAcaoLog {
+  CRIAR
+  EDITAR
+  EXCLUIR
+  VISUALIZAR
+  AVANCAR
+  VOLTAR
+  FINALIZAR
+  PREENCHER
+  COMENTAR
+  ANEXAR
+  TAG
+  TRANSFERIR
+  INTERLIGAR
+  CHECK
+  LOGIN
+  LOGOUT
+  IMPORTAR
+}
+
+// ============================================
+// INTERLIGAÇÃO DE SOLICITAÇÕES
+// ============================================
+
+model InterligacaoProcesso {
+  id             Int      @id @default(autoincrement())
+  processoOrigemId  Int
+  processoDestinoId Int
+  criadoPorId    Int
+  automatica     Boolean  @default(false) // true = interligação veio de template
+  criadoEm       DateTime @default(now())
+
+  @@unique([processoOrigemId, processoDestinoId])
+  @@index([processoOrigemId])
+  @@index([processoDestinoId])
+}
+
+// ============================================
+// CHECKLIST DE DEPARTAMENTO (CONCLUSÃO)
+// ============================================
+
+model ChecklistDepartamento {
+  id             Int      @id @default(autoincrement())
+  processoId     Int
+  departamentoId Int
+  concluido      Boolean  @default(false)
+  concluidoPorId Int?
+  concluidoEm    DateTime?
+  responsavelId  Int?     // Gerente/responsável deste departamento no momento da criação
+  responsavelNome String? // Nome do responsável para exibição rápida
+
+  @@unique([processoId, departamentoId])
+  @@index([processoId])
+  @@index([departamentoId])
+}
+
+// ============================================
+// MOTIVOS DE EXCLUSÃO
+// ============================================
+
+model MotivoExclusao {
+  id        Int      @id @default(autoincrement())
+  nome      String   @unique
+  padrao    Boolean  @default(false) // true = motivo pré-definido do sistema
+  criadoEm  DateTime @default(now())
+}

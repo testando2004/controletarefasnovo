@@ -1,0 +1,484 @@
+{
+  "resumo": {
+    "total_modais": 13,
+    "arquivo_origem": "sistema.js",
+    "linhas_totais": 12956,
+    "data_extracao": "2026-01-06"
+  },
+  "modais": {
+    "ModalNovaEmpresa": {
+      "linhas": "3628-4329",
+      "descricao": "Modal para criar nova solicitação com seleção de empresa, nome do serviço, fluxo de departamentos e questionários",
+      "campos_principais": [
+        "nomeEmpresa",
+        "cliente",
+        "email",
+        "telefone",
+        "nomeServico",
+        "questionariosPorDept",
+        "departamentoSelecionado",
+        "fluxoDepartamentos",
+        "salvarComoTemplateChecked"
+      ],
+      "funcionalidades": [
+        "Seleção de empresa cadastrada",
+        "Criação dinâmica de questionários por departamento",
+        "Adição/remoção de departamentos ao fluxo",
+        "Perguntas com tipos variados (text, textarea, number, date, boolean, select, file, phone, email)",
+        "Suporte a perguntas condicionais",
+        "Opção de salvar como template"
+      ],
+      "handlers": [
+        "adicionarDepartamentoAoFluxo",
+        "removerDepartamentoDoFluxo",
+        "adicionarPergunta",
+        "salvarPergunta",
+        "excluirPergunta",
+        "handleSubmit"
+      ],
+      "classes_css": "max-w-6xl, bg-gradient-to-r from-cyan-500 to-blue-600, grid grid-cols-3"
+    },
+    "ModalConfirmacao": {
+      "linhas": "4330-4408",
+      "descricao": "Modal genérico de confirmação com diferentes tipos (perigo, aviso, sucesso, info)",
+      "campos_principais": [
+        "titulo",
+        "mensagem",
+        "tipo",
+        "textoConfirmar",
+        "textoCancelar"
+      ],
+      "funcionalidades": [
+        "Diferentes cores por tipo",
+        "Ícones customizados",
+        "Botões com gradientes dinâmicos"
+      ],
+      "handlers": [
+        "onConfirm",
+        "onCancel"
+      ],
+      "classes_css": "max-w-md, bg-gradient-to-r, rounded-2xl"
+    },
+    "ModalConfirmacaoGenerica": {
+      "linhas": "4409-4472",
+      "descricao": "Modal alternativo de confirmação com configuração genérica",
+      "campos_principais": [
+        "config.tipo",
+        "config.titulo",
+        "config.mensagem"
+      ],
+      "funcionalidades": [
+        "Suporte a tipos: info, sucesso, aviso",
+        "Ícones e cores dinâmicas por tipo"
+      ],
+      "handlers": [
+        "onConfirm",
+        "onCancel"
+      ]
+    },
+    "ModalCadastrarEmpresa": {
+      "linhas": "4708-5216",
+      "descricao": "Modal para cadastro e edição de empresas com dados completos",
+      "campos_principais": [
+        "cnpj",
+        "codigo",
+        "razao_social",
+        "apelido",
+        "inscricao_estadual",
+        "inscricao_municipal",
+        "regime_federal",
+        "regime_estadual",
+        "regime_municipal",
+        "data_abertura",
+        "estado",
+        "cidade",
+        "bairro",
+        "logradouro",
+        "numero",
+        "cep",
+        "cadastrada"
+      ],
+      "funcionalidades": [
+        "Radio button para tipo de empresa (Cadastrada/Nova)",
+        "Formatação automática de CPF/CNPJ",
+        "Formatação automática de CEP e Telefone",
+        "Seleção de estado com lista completa",
+        "Validação de campos obrigatórios",
+        "Edição de empresa existente"
+      ],
+      "handlers": [
+        "handleChange",
+        "formatarCPFCNPJ",
+        "formatarTelefone",
+        "formatarCEP",
+        "handleSubmit"
+      ],
+      "classes_css": "max-w-4xl, bg-gradient-to-r from-green-500 to-green-600, grid grid-cols-3"
+    },
+    "ModalCriarDepartamento": {
+      "linhas": "5217-5794",
+      "descricao": "Modal para criar/editar departamentos com cores e ícones customizáveis",
+      "campos_principais": [
+        "nome",
+        "responsavel",
+        "descricao",
+        "corSelecionada",
+        "iconeSelecionado",
+        "docsObrigatorios"
+      ],
+      "funcionalidades": [
+        "Seleção de cores (grid 3 colunas)",
+        "Seleção de ícones (grid 6 colunas)",
+        "Lista de documentos obrigatórios",
+        "Adicionar/remover documentos"
+      ],
+      "handlers": [
+        "handleSubmit",
+        "adicionarDocumentoObrigatorio",
+        "removerDocumentoObrigatorio"
+      ],
+      "classes_css": "max-w-2xl, rounded-2xl, grid grid-cols-3"
+    },
+    "ModalSelecionarTemplate": {
+      "linhas": "5795-7694",
+      "descricao": "Modal para selecionar template de solicitação e dados da empresa",
+      "campos_principais": [
+        "templateSelecionado",
+        "empresaSelecionadaSolicitacao",
+        "responsavel"
+      ],
+      "funcionalidades": [
+        "Grid 2 colunas de templates com radio buttons",
+        "Tooltip com detalhes do fluxo",
+        "Visualização de informações da empresa selecionada",
+        "Menu de contexto para excluir templates (admin)",
+        "Validação de permissões para gerent"
+      ],
+      "handlers": [
+        "handleCriar",
+        "excluirTemplate"
+      ],
+      "classes_css": "max-w-3xl, bg-gradient-to-r from-purple-500 to-purple-600"
+    },
+    "ModalListarEmpresas": {
+      "linhas": "7695-8028",
+      "descricao": "Modal para listar empresas cadastradas ou novas com filtro e busca",
+      "campos_principais": [
+        "buscaEmpresa",
+        "empresaSelecionada",
+        "tipo (cadastradas/nao-cadastradas)"
+      ],
+      "funcionalidades": [
+        "Filtro por tipo de empresa",
+        "Busca por código, CNPJ ou razão social",
+        "Grid responsivo (1/2/3 colunas)",
+        "Modal secundário com detalhes da empresa",
+        "Botões de editar/excluir para admin",
+        "Atualização de lista (recarregar)"
+      ],
+      "handlers": [
+        "recarregarEmpresas"
+      ],
+      "classes_css": "max-w-6xl, grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+    },
+    "ModalGerenciarTags": {
+      "linhas": "8029-8581",
+      "descricao": "Modal para criar e gerenciar tags com cores customizáveis",
+      "campos_principais": [
+        "novaTag { nome, cor, texto }",
+        "editando"
+      ],
+      "funcionalidades": [
+        "Criar novas tags",
+        "Editar tags existentes",
+        "Seleção de cores (12 cores disponíveis)",
+        "Excluir tags",
+        "Grid 6 colunas para seleção de cores"
+      ],
+      "handlers": [
+        "handleSalvarNova",
+        "handleSalvarEdicao"
+      ],
+      "classes_css": "max-w-3xl, bg-gradient-to-r from-indigo-500 to-purple-600, grid grid-cols-6"
+    },
+    "ModalSelecionarTags": {
+      "linhas": "8582-8581 (dentro de ModalGerenciarTags)",
+      "descricao": "Sub-modal para selecionar tags para um processo específico",
+      "campos_principais": [
+        "tagsSelecionadas",
+        "processo"
+      ],
+      "funcionalidades": [
+        "Checkbox para cada tag",
+        "Exibição de cores das tags",
+        "Aplicar múltiplas tags"
+      ],
+      "handlers": [
+        "toggleTag",
+        "handleSalvar"
+      ],
+      "classes_css": "max-w-md"
+    },
+    "ModalAnalytics": {
+      "linhas": "8582-9478",
+      "descricao": "Modal com dashboard de análises e métricas do sistema",
+      "campos_principais": [
+        "visualizacaoAtiva (overview/departamentos/previsoes)",
+        "analytics",
+        "departamentosCriados"
+      ],
+      "funcionalidades": [
+        "3 abas: Visão Geral, Departamentos, Previsões",
+        "Gráficos de barras com dados",
+        "Cards com métricas",
+        "Análise de gargalos",
+        "Previsão de conclusão com confiança",
+        "Grid responsivo de performance por departamento"
+      ],
+      "handlers": [
+        "GraficoBarras (sub-componente)"
+      ],
+      "classes_css": "max-w-6xl, grid grid-cols-2 md:grid-cols-4, grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+    },
+    "ModalComentarios": {
+      "linhas": "9479-9720",
+      "descricao": "Modal para gerenciar comentários de um processo com menções",
+      "campos_principais": [
+        "comentarioAtual",
+        "editando",
+        "textoEditado"
+      ],
+      "funcionalidades": [
+        "Envio de comentários com Ctrl+Enter",
+        "Edição de comentários",
+        "Exclusão de comentários (com permissão)",
+        "Suporte a menções (@usuario)",
+        "Renderização de texto com mencões destacadas",
+        "Histórico com timestamps"
+      ],
+      "handlers": [
+        "handleEnviar",
+        "handleExcluir",
+        "handleEditar",
+        "handleSalvarEdicao",
+        "renderTextoComMencoes"
+      ],
+      "classes_css": "max-w-4xl, bg-gradient-to-r from-purple-500 to-purple-600, flex flex-col"
+    },
+    "ModalUploadDocumento": {
+      "linhas": "9721-10412",
+      "descricao": "Modal para upload de documentos com drag-and-drop",
+      "campos_principais": [
+        "arquivos",
+        "tipoDocumento",
+        "arrastando"
+      ],
+      "funcionalidades": [
+        "Drag-and-drop de arquivos",
+        "Seleção de tipo de documento (8 tipos)",
+        "Visualização de arquivos selecionados",
+        "Remover arquivos da lista",
+        "Upload múltiplo",
+        "Progresso de upload",
+        "Tipos: geral, contrato_social, cnpj, ie, certificado_digital, procuracoes, documentos_socios, comprovante_endereco"
+      ],
+      "handlers": [
+        "handleArquivosSelecionados",
+        "handleDragOver",
+        "handleDragLeave",
+        "handleDrop",
+        "handleUpload",
+        "removerArquivo"
+      ],
+      "classes_css": "max-w-2xl, bg-gradient-to-r from-cyan-500 to-blue-600"
+    },
+    "ModalQuestionario": {
+      "linhas": "7700-10000 (aproximado - QuestionarioModal não é const)",
+      "descricao": "Componente modal para preencher/visualizar questionários de departamentos",
+      "campos_principais": [
+        "respostas",
+        "respostasAnteriores",
+        "scrollPosition",
+        "somenteLeitura"
+      ],
+      "funcionalidades": [
+        "Renderização dinâmica de campos por tipo",
+        "Suporte a 9 tipos de campos",
+        "Perguntas condicionais",
+        "Upload de documentos inline",
+        "Visualização de respostas anteriores",
+        "Backup de respostas em localStorage",
+        "Salvar silenciosamente",
+        "Edição de questionários",
+        "Ver detalhes da empresa"
+      ],
+      "handlers": [
+        "handleRespostaChange",
+        "handleFecharModal",
+        "handleSubmit",
+        "salvarSilenciosamente",
+        "renderCampo",
+        "avaliarCondicao"
+      ],
+      "classes_css": "max-w-4xl, grid grid-cols-1 md:grid-cols-2, max-h-[90vh]"
+    },
+    "ModalVisualizacao": {
+      "linhas": "8582+ (VisualizacaoCompleta)",
+      "descricao": "Modal para visualizar processo completo com todas as informações e histórico",
+      "campos_principais": [
+        "processo",
+        "departamentosCriados"
+      ],
+      "funcionalidades": [
+        "Informações gerais do processo",
+        "Respostas por departamento",
+        "Histórico completo com ícones",
+        "Lista de documentos com preview",
+        "Botão para adicionar documento"
+      ],
+      "handlers": [],
+      "classes_css": "max-w-6xl, bg-gradient-to-r from-green-500 to-emerald-600, grid grid-cols-1 md:grid-cols-3"
+    },
+    "ModalGaleria": {
+      "linhas": "8582+ (GaleriaDocumentos)",
+      "descricao": "Modal para visualizar galeria de documentos de um departamento",
+      "campos_principais": [
+        "departamento",
+        "processos",
+        "documentos"
+      ],
+      "funcionalidades": [
+        "Filtro de documentos por departamento",
+        "Agrupamento por tipo de documento",
+        "Card para cada documento com preview/download/excluir",
+        "Ícones diferentes por tipo de arquivo",
+        "Grid responsivo 1/2/3 colunas"
+      ],
+      "handlers": [
+        "DocumentoCard (sub-componente)",
+        "agruparPorTipo"
+      ],
+      "classes_css": "max-w-6xl, grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+    },
+    "ModalLogin": {
+      "linhas": "10413+",
+      "descricao": "Modal de login para autenticação do usuário",
+      "campos_principais": [
+        "nome",
+        "senha",
+        "erro",
+        "carregando"
+      ],
+      "funcionalidades": [
+        "Validação de credenciais",
+        "Mensagens de erro",
+        "Estado de carregamento",
+        "Integração com API"
+      ],
+      "handlers": [
+        "handleLogin"
+      ],
+      "classes_css": "max-w-md, bg-gradient-to-r from-cyan-500 to-blue-600"
+    }
+  },
+  "componentes_auxiliares": {
+    "QuestionarioModal": {
+      "tipo": "Componente (não const)",
+      "descricao": "Modal funcional para questionários com gerenciamento de estado complexo"
+    },
+    "VisualizacaoCompleta": {
+      "tipo": "Componente funcional",
+      "descricao": "Visualização completa de um processo"
+    },
+    "GaleriaDocumentos": {
+      "tipo": "Componente funcional",
+      "descricao": "Galeria de documentos de um departamento"
+    },
+    "PreviewDocumento": {
+      "tipo": "Componente funcional",
+      "descricao": "Preview/visualização de documentos (imagens, PDFs, etc)"
+    },
+    "ModalEditarQuestionarioSolicitacao": {
+      "tipo": "Componente funcional",
+      "descricao": "Modal para editar questionários de solicitações"
+    }
+  },
+  "tipos_campos_suportados": [
+    "text (Texto Simples)",
+    "textarea (Texto Longo)",
+    "number (Número)",
+    "date (Data)",
+    "boolean (Sim/Não)",
+    "select (Seleção Única)",
+    "file (Arquivo/Anexo)",
+    "phone (Telefone)",
+    "email (Email)"
+  ],
+  "tipos_documentos": [
+    "geral",
+    "contrato_social",
+    "cnpj",
+    "ie",
+    "certificado_digital",
+    "procuracoes",
+    "documentos_socios",
+    "comprovante_endereco"
+  ],
+  "estados_globais_utilizados": [
+    "showNovaEmpresa",
+    "showCadastrarEmpresa",
+    "showCriarDepartamento",
+    "showAnalytics",
+    "showComentarios",
+    "showUploadDocumento",
+    "showGerenciarTags",
+    "showSelecionarTags",
+    "showListarEmpresas",
+    "showGaleria",
+    "showVisualizacao",
+    "showQuestionario",
+    "showLogin",
+    "showGerenciarUsuarios"
+  ],
+  "permissoes_requeridas": [
+    "criar_processo",
+    "editar_processo",
+    "excluir_processo",
+    "criar_tag",
+    "editar_tag",
+    "excluir_tag",
+    "criar_departamento",
+    "editar_departamento",
+    "excluir_departamento",
+    "gerenciar_usuarios",
+    "mover_processo",
+    "excluir_tag"
+  ],
+  "notas_importantes": {
+    "localStorage": "Utiliza localStorage para backup de respostas em questionários (chave: respostas_temp_[processoId]_[departamentoId])",
+    "websocket": "Suporta conexão WebSocket para atualizações em tempo real",
+    "api": "Integração com API REST via fetchAutenticado",
+    "validacao": "Validações client-side para campos obrigatórios",
+    "formatacao": "Auto-formatação de CPF/CNPJ, CEP, Telefone",
+    "condicionalidade": "Suporta perguntas condicionais (aparece se resposta anterior = X)"
+  },
+  "estrutura_classes_tailwind": {
+    "backgrounds": [
+      "from-cyan-500 to-blue-600",
+      "from-green-500 to-green-600",
+      "from-purple-500 to-purple-600",
+      "from-amber-500 to-orange-600",
+      "bg-white, bg-gray-50, bg-gray-100"
+    ],
+    "responsive": [
+      "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+      "max-w-3xl, max-w-4xl, max-w-6xl",
+      "p-4 md:p-6, gap-4 md:gap-6"
+    ],
+    "states": [
+      "hover:, focus:, disabled:, active:",
+      "opacity-50, opacity-90",
+      "transition-all duration-200"
+    ]
+  }
+}
