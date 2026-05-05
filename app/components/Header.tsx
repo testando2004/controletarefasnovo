@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { Bell, Download, TrendingUp, Plus, FileText, Users, User, X, Upload, Shield, Building2 } from 'lucide-react';
 import { useSistema } from '@/app/context/SistemaContext';
 import { temPermissao as verificarPermissao, isGhostUsuario } from '@/app/utils/permissions';
@@ -62,18 +61,6 @@ export default function Header({
             <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
           {/* Logo e Título */}
           <div className="flex items-center gap-4 min-w-0 shrink-0">
-            <div className="bg-gradient-to-br from-cyan-400 to-blue-600 p-[2px] rounded-2xl shadow-xl">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-[14px] overflow-hidden bg-white/90 backdrop-blur flex items-center justify-center transition-transform duration-200 hover:scale-[1.02]">
-                <Image
-                  src="/triar.png"
-                  alt="Logo Triar"
-                  width={64}
-                  height={64}
-                  priority
-                  className="w-12 h-12 md:w-16 md:h-16 object-contain"
-                />
-              </div>
-            </div>
             <div className="min-w-0">
               <h1 className="leading-[1.05] tracking-tight">
                 <span className="block text-base md:text-lg font-bold text-gray-700 whitespace-nowrap">

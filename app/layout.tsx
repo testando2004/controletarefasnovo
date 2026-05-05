@@ -8,9 +8,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Controle de Tarefas",
   description: "Gerenciamento de Processos e Departamentos",
-  icons: {
-    icon: "/triar.png",
-  },
 };
 
 export default function RootLayout({

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
@@ -219,11 +218,6 @@ export default function Sidebar({
 
   const renderLogo = (collapsed: boolean) => (
     <div className={`flex items-center border-b border-gray-100 dark:border-gray-700 ${collapsed ? 'justify-center px-0 py-4' : 'gap-3 px-4 py-4'}`}>
-      <div className="bg-gradient-to-br from-cyan-400 to-blue-600 p-[2px] rounded-2xl shadow-lg shrink-0">
-        <div className={`${collapsed ? 'w-12 h-12' : 'w-14 h-14'} rounded-[12px] overflow-hidden bg-white/95 backdrop-blur flex items-center justify-center`}>
-          <Image src="/triar.png" alt="Logo Triar" width={56} height={56} priority className="w-10 h-10 object-contain" />
-        </div>
-      </div>
       {!collapsed && (
         <div className="leading-tight min-w-0 overflow-hidden">
           <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase whitespace-nowrap">Controle de</span>
@@ -416,7 +410,6 @@ export default function Sidebar({
             <Menu size={22} />
           </button>
           <div className="flex items-center gap-2">
-            <Image src="/triar.png" alt="Triar" width={28} height={28} priority className="w-7 h-7 object-contain" />
             <span className="text-sm font-bold text-gray-900 dark:text-white">Controle de Tarefas</span>
           </div>
           <button
@@ -449,7 +442,6 @@ export default function Sidebar({
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <Image src="/triar.png" alt="Logo Triar" width={36} height={36} priority className="w-9 h-9 object-contain" />
             <div className="leading-tight">
               <span className="block text-[10px] font-bold text-gray-400 tracking-widest uppercase">Controle de</span>
               <span className="block text-base font-extrabold text-gray-900 dark:text-white leading-none">Tarefas</span>

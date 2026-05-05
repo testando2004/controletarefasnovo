@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import { LogIn, KeyRound, ArrowLeft, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import ModalBase from './ModalBase';
 import { api } from '@/app/utils/api';
@@ -397,20 +396,6 @@ export default function ModalLogin({ onLogin }: ModalLoginProps) {
         <div className="bg-white dark:bg-[var(--card)] rounded-2xl overflow-hidden">
           {/* Header com Gradient */}
           <div className="bg-gradient-to-r from-cyan-500 to-blue-600 p-8 text-white">
-            <div className="flex items-center justify-center mb-4">
-              <div className="bg-white/25 p-[2px] rounded-2xl shadow-lg">
-                <div className="w-20 h-20 rounded-[14px] bg-white/15 backdrop-blur flex items-center justify-center">
-                  <Image
-                    src="/triar.png"
-                    alt="Logo"
-                    width={56}
-                    height={56}
-                    priority
-                    className="w-14 h-14 object-contain"
-                  />
-                </div>
-              </div>
-            </div>
             <h1 id="login-title" className="text-3xl font-bold text-center">Controle de Tarefas</h1>
             <p id="login-desc" className="text-center text-white/90 mt-2">Gerenciamento de Processos</p>
           </div>
