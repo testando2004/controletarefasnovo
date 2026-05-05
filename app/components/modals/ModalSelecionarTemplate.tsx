@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, FileText, Info, MoreVertical, Trash2, Edit, ClipboardList, Link2, ArrowUp, ArrowDown, Search, Pin } from 'lucide-react';
 import { useSistema } from '@/app/context/SistemaContext';
 import { Template } from '@/app/types';
@@ -101,7 +101,45 @@ export default function ModalSelecionarTemplate({ onClose, onEditTemplate }: Mod
     });
   }, [templatesDisponiveis, buscaTemplate, templatesFixados]);
 
-  const empresasDisponiveis = empresas || [];
+  const empresasDisponiveis = useMemo(() => {
+    return [...(empresas || [])].sort((a: any, b: any) => {
+      const na = String(a?.razao_social ?? a?.nome ?? '').toLowerCase();
+      const nb = String(b?.razao_social ?? b?.nome ?? '').toLowerCase();
+      return na.localeCompare(nb, 'pt-BR');
+    });
+  }, [empresas]);
+
+  // Combobox de empresa: busca por código, nome ou CNPJ
+  const [buscaEmpresa, setBuscaEmpresa] = useState('');
+  const [showEmpresaDropdown, setShowEmpresaDropdown] = useState(false);
+  const empresaWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const empresasFiltradas = useMemo(() => {
+    const termo = buscaEmpresa.trim().toLowerCase();
+    if (!termo) return empresasDisponiveis;
+    const termoDigits = termo.replace(/\D/g, '');
+    return empresasDisponiveis.filter((emp: any) => {
+      const nome = String(emp?.razao_social ?? emp?.nome ?? '').toLowerCase();
+      const codigo = String(emp?.codigo ?? '').toLowerCase();
+      const cnpj = String(emp?.cnpj ?? '').replace(/\D/g, '');
+      return (
+        nome.includes(termo) ||
+        codigo.includes(termo) ||
+        (termoDigits.length > 0 && cnpj.includes(termoDigits))
+      );
+    });
+  }, [empresasDisponiveis, buscaEmpresa]);
+
+  useEffect(() => {
+    if (!showEmpresaDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (empresaWrapperRef.current && !empresaWrapperRef.current.contains(e.target as Node)) {
+        setShowEmpresaDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmpresaDropdown]);
 
   useEffect(() => {
     let ativo = true;
@@ -455,29 +493,67 @@ export default function ModalSelecionarTemplate({ onClose, onEditTemplate }: Mod
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Selecionar Empresa Cadastrada {!semEmpresa && <span className="text-red-500">*</span>}
                 </label>
-                <select
-                  value={empresaSelecionada?.id || ""}
-                  onChange={(e) => {
-                    const empresaId = e.target.value;
-                    if (empresaId) {
-                      const empresa = empresasDisponiveis.find((emp: any) => emp.id === parseInt(empresaId));
-                      setEmpresaSelecionada(empresa);
-                    } else {
-                      setEmpresaSelecionada(null);
-                    }
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-                  required={!semEmpresa}
-                  disabled={semEmpresa}
-                >
-                  <option value="">Selecione uma empresa</option>
-                  {empresasDisponiveis.map((emp: any) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.codigo} - {emp.razao_social}
-                      {String(emp.cnpj ?? '').replace(/\D/g, '').length > 0 ? '' : ' (NOVA)'}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={empresaWrapperRef}>
+                  <input
+                    type="text"
+                    value={empresaSelecionada
+                      ? `${empresaSelecionada.codigo} - ${empresaSelecionada.razao_social}`
+                      : buscaEmpresa}
+                    onChange={(e) => {
+                      if (empresaSelecionada) setEmpresaSelecionada(null);
+                      setBuscaEmpresa(e.target.value);
+                      setShowEmpresaDropdown(true);
+                    }}
+                    onFocus={() => setShowEmpresaDropdown(true)}
+                    placeholder="Digite o código ou nome da empresa"
+                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    required={!semEmpresa}
+                    disabled={semEmpresa}
+                    autoComplete="off"
+                  />
+                  {empresaSelecionada && !semEmpresa && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmpresaSelecionada(null);
+                        setBuscaEmpresa('');
+                        setShowEmpresaDropdown(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                      aria-label="Limpar empresa"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                  {showEmpresaDropdown && !semEmpresa && (
+                    <div className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto bg-white border border-gray-300 rounded-xl shadow-lg">
+                      {empresasFiltradas.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          Nenhuma empresa encontrada
+                        </div>
+                      ) : (
+                        empresasFiltradas.map((emp: any) => (
+                          <button
+                            type="button"
+                            key={emp.id}
+                            onClick={() => {
+                              setEmpresaSelecionada(emp);
+                              setBuscaEmpresa('');
+                              setShowEmpresaDropdown(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm hover:bg-purple-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <span className="font-medium text-gray-700">{emp.codigo}</span>
+                            <span className="text-gray-700"> - {emp.razao_social}</span>
+                            {String(emp.cnpj ?? '').replace(/\D/g, '').length === 0 && (
+                              <span className="ml-1 text-xs text-amber-600">(NOVA)</span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
                 <label className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -624,132 +700,6 @@ export default function ModalSelecionarTemplate({ onClose, onEditTemplate }: Mod
               </div>
             )}
 
-            {/* Interligação com outra solicitação (template/atividade) */}
-            {templatesDisponiveis.length > 1 && (() => {
-              const tmplSel: any = (templatesDisponiveis || []).find((t: any) => t.id === templateSelecionado);
-              const temCadeiaPadrao = Array.isArray(tmplSel?.interligacaoTemplateIds) && tmplSel.interligacaoTemplateIds.length > 0;
-              return (
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  <Link2 className="inline w-4 h-4 mr-1" />
-                  Selecione as atividades para continuar <span className="text-gray-400 text-xs font-normal">(opcional)</span>
-                </label>
-                {temCadeiaPadrao && (
-                  <div className="mb-2 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200 text-xs text-purple-700">
-                    ✓ Cadeia pré-configurada no template aplicada. Você pode ajustar antes de criar.
-                  </div>
-                )}
-                <div className="space-y-2 rounded-xl border border-purple-200 bg-white p-3">
-                  {templatesDisponiveis
-                    .filter((t) => t.id !== templateSelecionado)
-                    .map((t) => {
-                      const selecionado = interligarCom.includes(t.id);
-                      const ordem = interligarCom.indexOf(t.id);
-                      return (
-                        <label
-                          key={t.id}
-                          className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
-                            selecionado
-                              ? 'border-purple-400 bg-purple-50'
-                              : 'border-gray-200 hover:border-purple-300'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selecionado}
-                            onChange={() => toggleInterligacao(t.id)}
-                            className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
-                          />
-                          {selecionado && (
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white">
-                              {ordem + 1}
-                            </span>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-gray-700">
-                              {t.nome}
-                            </span>
-                            {t.descricao && (
-                              <span className="block truncate text-xs text-gray-500">
-                                {t.descricao}
-                              </span>
-                            )}
-                          </div>
-                          {selecionado && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  moverInterligacao(t.id, -1);
-                                }}
-                                className="rounded p-1 text-gray-500 hover:bg-purple-100 hover:text-purple-700"
-                                title="Mover para cima"
-                              >
-                                <ArrowUp size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  moverInterligacao(t.id, 1);
-                                }}
-                                className="rounded p-1 text-gray-500 hover:bg-purple-100 hover:text-purple-700"
-                                title="Mover para baixo"
-                              >
-                                <ArrowDown size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </label>
-                      );
-                    })}
-                </div>
-                {interligarCom.length > 0 && (
-                  <>
-                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                      🔗 Ao finalizar esta solicitacao, a primeira atividade da lista sera criada automaticamente. As demais permanecem salvas em fila.
-                    </p>
-                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={interligarParalelo}
-                        onChange={(e) => setInterligarParalelo(e.target.checked)}
-                        className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
-                      />
-                      <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
-                        ⚡ Ativar departamentos em paralelo nas atividades interligadas
-                      </span>
-                    </label>
-                  </>
-                )}
-              </div>
-              );
-            })()}
-          </div>
-
-          {/* Departamentos Independentes (paralelo) */}
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200 dark:border-indigo-700">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={deptIndependente}
-                onChange={(e) => setDeptIndependente(e.target.checked)}
-                className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-              />
-              <div>
-                <span className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">
-                  ⚡ Departamentos trabalham em paralelo
-                </span>
-                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
-                  Ative se cada departamento pode preencher seu questionário independentemente.
-                  A solicitação aparecerá em todos os departamentos do fluxo. O check (finalização)
-                  segue a ordem: dep 1 precisa dar check antes do 2, que precisa antes do 3, e assim por diante.
-                </p>
-              </div>
-            </label>
           </div>
 
           <div className="bg-cyan-50 rounded-xl p-4 border border-cyan-200">
@@ -989,6 +939,133 @@ export default function ModalSelecionarTemplate({ onClose, onEditTemplate }: Mod
                 )}
               </>
             )}
+          </div>
+
+          {/* Interligação com outra solicitação (template/atividade) */}
+          {templatesDisponiveis.length > 1 && (() => {
+            const tmplSel: any = (templatesDisponiveis || []).find((t: any) => t.id === templateSelecionado);
+            const temCadeiaPadrao = Array.isArray(tmplSel?.interligacaoTemplateIds) && tmplSel.interligacaoTemplateIds.length > 0;
+            return (
+              <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <Link2 className="inline w-4 h-4 mr-1" />
+                  Selecione as atividades para continuar <span className="text-gray-400 text-xs font-normal">(opcional)</span>
+                </label>
+                {temCadeiaPadrao && (
+                  <div className="mb-2 px-3 py-2 rounded-lg bg-purple-100 border border-purple-200 text-xs text-purple-700">
+                    ✓ Cadeia pré-configurada no template aplicada. Você pode ajustar antes de criar.
+                  </div>
+                )}
+                <div className="space-y-2 rounded-xl border border-purple-200 bg-white p-3">
+                  {templatesDisponiveis
+                    .filter((t) => t.id !== templateSelecionado)
+                    .map((t) => {
+                      const selecionado = interligarCom.includes(t.id);
+                      const ordem = interligarCom.indexOf(t.id);
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
+                            selecionado
+                              ? 'border-purple-400 bg-purple-50'
+                              : 'border-gray-200 hover:border-purple-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selecionado}
+                            onChange={() => toggleInterligacao(t.id)}
+                            className="h-4 w-4 rounded text-purple-600 focus:ring-purple-500"
+                          />
+                          {selecionado && (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white">
+                              {ordem + 1}
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-gray-700">
+                              {t.nome}
+                            </span>
+                            {t.descricao && (
+                              <span className="block truncate text-xs text-gray-500">
+                                {t.descricao}
+                              </span>
+                            )}
+                          </div>
+                          {selecionado && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  moverInterligacao(t.id, -1);
+                                }}
+                                className="rounded p-1 text-gray-500 hover:bg-purple-100 hover:text-purple-700"
+                                title="Mover para cima"
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  moverInterligacao(t.id, 1);
+                                }}
+                                className="rounded p-1 text-gray-500 hover:bg-purple-100 hover:text-purple-700"
+                                title="Mover para baixo"
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </label>
+                      );
+                    })}
+                </div>
+                {interligarCom.length > 0 && (
+                  <>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                      🔗 Ao finalizar esta solicitacao, a primeira atividade da lista sera criada automaticamente. As demais permanecem salvas em fila.
+                    </p>
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={interligarParalelo}
+                        onChange={(e) => setInterligarParalelo(e.target.checked)}
+                        className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                      />
+                      <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+                        ⚡ Ativar departamentos em paralelo nas atividades interligadas
+                      </span>
+                    </label>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Departamentos Independentes (paralelo) */}
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200 dark:border-indigo-700">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={deptIndependente}
+                onChange={(e) => setDeptIndependente(e.target.checked)}
+                className="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+              />
+              <div>
+                <span className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">
+                  ⚡ Departamentos trabalham em paralelo
+                </span>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                  Ative se cada departamento pode preencher seu questionário independentemente.
+                  A solicitação aparecerá em todos os departamentos do fluxo. O check (finalização)
+                  segue a ordem: dep 1 precisa dar check antes do 2, que precisa antes do 3, e assim por diante.
+                </p>
+              </div>
+            </label>
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:gap-4">
